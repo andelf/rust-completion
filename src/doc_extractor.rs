@@ -3,7 +3,10 @@
 
 
 extern crate rustdoc;
+extern crate syntax;
 
+
+use syntax::ast;
 use rustdoc::clean;
 
 use rustdoc::plugins::{PluginCallback, PluginResult, PluginJson};
@@ -12,23 +15,47 @@ use rustdoc::plugins::{PluginCallback, PluginResult, PluginJson};
 // rustdoc -L. --plugin-path . --plugins dummy rust-sdl2/src/sdl2/lib.rs
 // rustdoc --plugin-path . --plugins doc_extractor ~/Repos/rust/src/libcollections/lib.rs
 
-fn dump_item_enum(item: &clean::ItemEnum) {
+
+
+fn dump_item_enum(item: &clean::ItemEnum, ident_level: uint) {
     match *item {
         clean::ModuleItem(ref m) => {
-            println!("|| items => {:?}", m.items);
+            println!("{}!A Module", " ".repeat(ident_level));
+            println!("{}| module items => {:?}", " ".repeat(ident_level), m.items);
+            for item in m.items.iter() {
+                dump_item(item, ident_level + 2)
+            }
         },
-        _ => ()
+        clean::ViewItemItem(ref v) => {
+            println!("{}!A ViewItem", " ".repeat(ident_level));
+            match v.inner {
+                clean::Import(ref vpath) => {
+                    print!("{}| ", " ".repeat(ident_level));
+                    println!("{:?}", vpath);
+                }
+                _ => {
+                    print!("{}| ", " ".repeat(ident_level));
+                    println!("{}", "extern create");
+                }
+            }
+        }
+        ref i => {
+            println!("{}!{:?}", " ".repeat(ident_level), i)
+        }
     }
 }
 
-fn dump_item(item: &clean::Item) {
-    println!("| item name => {:?}", item.name);
-    println!("| vis => {:?}", item.visibility);
-    for attr in item.attrs.iter() {
-        println!("|   attr => {:?}", attr);
+fn dump_item(item: &clean::Item, ident_level: uint) {
+    println!("{}| item name => {:?}", " ".repeat(ident_level), item.name);
+    println!("{}| vis => {:?}", " ".repeat(ident_level), item.visibility);
+
+    // for attr in item.attrs.iter() {
+    //     println!("{}| attr => {:?}", " ".repeat(ident_level), attr);
+    // }
+    //println!("{}| inner => {:?}", " ".repeat(ident_level), item.inner);
+    if item.visibility.expect("visibility here") == ast::Public {
+        dump_item_enum(&item.inner, ident_level);
     }
-    println!("| inner => {:?}", item.inner);
-    dump_item_enum(&item.inner);
 }
 
 #[no_mangle]
@@ -36,7 +63,7 @@ pub fn rustdoc_plugin_entrypoint(c: clean::Crate) -> PluginResult {
     println!("loading extension ok!");
     println!("crate => {}", c.name);
 
-    c.module.as_ref().map(dump_item);
+    c.module.as_ref().map(|m| dump_item(m, 0));
     // externs is useless for our app
     // for ext in c.externs.iter() {
     //     println!("externs => {:?}", *ext);

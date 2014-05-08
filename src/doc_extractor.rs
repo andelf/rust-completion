@@ -15,6 +15,9 @@ use rustdoc::plugins::{PluginCallback, PluginResult, PluginJson};
 // rustdoc -L. --plugin-path . --plugins dummy rust-sdl2/src/sdl2/lib.rs
 // rustdoc --plugin-path . --plugins doc_extractor ~/Repos/rust/src/libcollections/lib.rs
 
+pub trait Extractable {
+    fn extract(&self);
+}
 
 
 fn dump_item_enum(item: &clean::ItemEnum, ident_level: uint) {

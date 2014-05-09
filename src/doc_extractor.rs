@@ -16,7 +16,149 @@ use rustdoc::plugins::{PluginCallback, PluginResult, PluginJson};
 // rustdoc --plugin-path . --plugins doc_extractor ~/Repos/rust/src/libcollections/lib.rs
 
 pub trait Extractable {
-    fn extract(&self);
+    fn extract(&self, prefix: &str);
+}
+
+
+impl Extractable for clean::Crate {
+    fn extract(&self, prefix: &str) {
+        println!("crate: {}", self.name);
+        match self.module {
+            Some(ref i) => {
+                i.extract(prefix + "::" + self.name);
+            }
+            _ => ()
+        }
+    }
+}
+
+impl Extractable for clean::Item {
+    fn extract(&self, prefix: &str) {
+        if self.visibility.unwrap_or(ast::Inherited) != ast::Public {
+            //println!("ignore");
+            //println!("debug {:?}", self);
+            return
+        }
+        match self.name {
+            Some(ref n) => {
+                println!("Item name => {}::{}", prefix,  n);
+                if n.len() > 0 {
+                    self.inner.extract(prefix + "::" + *n)
+                } else {
+                    self.inner.extract(prefix)
+                }
+            }
+            _ => {
+                self.inner.extract(prefix)
+                //println!("Item name => {}::**", prefix);
+                //println!("debug => {:?}", self.inner)
+            }
+        }
+
+    }
+}
+
+impl Extractable for clean::ItemEnum {
+    fn extract(&self, prefix: &str) {
+        match *self {
+            clean::StructItem(ref s) => {
+                println!("Struct => {}", s.struct_type);
+                for item in s.fields.iter() {
+                    //println!("vis => {:?}", item.visibility);
+                    if item.visibility.is_none() {
+                        continue
+                    }
+                    match item.inner {
+                        clean::StructFieldItem(ref f) => {
+                            match *f {
+                                clean::TypedStructField(ref tp) => {
+                                    println!("| {}: {:?}", item.name.as_ref().unwrap_or(&"".to_owned()), tp)
+                                }
+                                _ => () // HiddenStructField
+                            }
+                        }
+                        _ => {
+                            unreachable!()
+                        }
+                    }
+
+                }
+            }
+            clean::FunctionItem(ref f) => {
+                //println!("{}() => {} -> {:?}", prefix, f.decl.inputs, f.decl.output);
+                println!("{}() f", prefix);
+            }
+            clean::ModuleItem(ref m) => {
+                // is top level crate
+                //println!("is_crate: {}", m.is_crate);
+                for item in m.items.iter() {
+                    item.extract(prefix);
+                }
+            }
+            clean::TypedefItem(ref t) => {
+                //println!("| {} {:?}", t.generics, t.type_);
+                println!("typedef!");
+            }
+            clean::TraitItem(ref t) => {
+                for m in t.methods.iter() {
+                    match *m {
+                        clean::Required(ref i) => {
+                            println!("| {}()", i.name.as_ref().expect("a method name"));
+                        }
+                        clean::Provided(ref i) => {
+                            println!("| {}()", i.name.as_ref().expect("a method name"));
+                        }
+                    }
+                }
+            }
+
+            clean::ViewItemItem(ref v) => {
+                v.extract(prefix);
+            }
+            ref i => {
+                println!("unkown => {:?}", i);
+            }
+        }
+    }
+}
+
+impl Extractable for clean::ViewItem {
+    fn extract(&self, prefix: &str) {
+        //println!("{}::{}", prefix)
+        match self.inner {
+            clean::ExternCrate(ref name, ref cname_opt, _) => {
+                println!("fuck");
+                println!("{}::{} = {}", prefix, cname_opt, name);
+            }
+            clean::Import(ref vp) => {
+                //println!("import => {:?}", vp)
+                vp.extract(prefix);
+            }
+        }
+    }
+}
+
+impl Extractable for clean::ViewPath {
+    fn extract(&self, prefix: &str) {
+        match *self {
+            clean::SimpleImport(ref name, ref src) => {
+                //println!("{}::{} = {}", prefix, name, src.path)
+                println!("use {} = {}", name, src.path)
+            }
+            clean::GlobImport(ref src) => {
+                println!("{}::* = {}", prefix, src.path)
+                //println!("{}::* = {}", prefix, src.path)
+            }
+            clean::ImportList(ref src, ref lst) => {
+                //print!("{}:: use {}::\\{", prefix, src);
+                print!("use {}::\\{", src);
+                for ident in lst.iter() {
+                    print!("{},", ident.name)
+                }
+                println!("\\}")
+            }
+        }
+    }
 }
 
 
@@ -74,6 +216,8 @@ pub fn rustdoc_plugin_entrypoint(c: clean::Crate) -> PluginResult {
     //         println!("attrs => {:?}", attr);
     //     }
     // }
-
+    println!("{}", "=".repeat(78));
+    c.extract("");
     (c, None)
+
 }

@@ -1,4 +1,4 @@
-.PHONY: all test test2
+.PHONY: all test test2 test3
 
 all: doc_extractor.dylib
 
@@ -14,3 +14,6 @@ test: all
 
 test2:
 	rustdoc --plugin-path . --plugins doc_extractor ~/Repos/rust/src/libregex/lib.rs
+
+test3:
+	rustdoc --plugin-path . --plugins doc_extractor ~/Repos/rust/src/liblibc/lib.rs

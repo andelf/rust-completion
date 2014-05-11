@@ -1,4 +1,4 @@
-.PHONY: all test test2 test3
+.PHONY: all test test2 test3 test4 test5
 
 all: doc_extractor.dylib
 
@@ -17,3 +17,11 @@ test2:
 
 test3:
 	rustdoc --plugin-path . --plugins doc_extractor ~/Repos/rust/src/liblibc/lib.rs
+
+
+test4:
+	rustdoc --plugin-path . --plugins doc_extractor ~/Repos/rust/src/libgraphviz/lib.rs
+
+
+test5:
+	rustdoc --plugin-path . --plugins doc_extractor ../rust-sdl2/src/sdl2/lib.rs

@@ -11,7 +11,8 @@ use syntax::ast;
 use rustdoc::clean;
 use collections::HashMap;
 
-use rustdoc::plugins::{PluginCallback, PluginResult, PluginJson};
+//use rustdoc::plugins::{PluginCallback, PluginResult, PluginJson};
+use rustdoc::plugins::PluginResult;
 
 // rustc src/doc_extractor.rs -o doc_extractor.dylib
 // rustdoc -L. --plugin-path . --plugins dummy rust-sdl2/src/sdl2/lib.rs
@@ -23,19 +24,18 @@ use rustdoc::plugins::{PluginCallback, PluginResult, PluginJson};
 //     Struct
 // }
 
-
-
 pub trait Extractable {
-    fn extract(&self, prefix: &str, vis: Option<clean::Visibility>);
+    fn extract(&self, indent_level: uint, prefix: &str, vis: Option<clean::Visibility>);
 }
 
 
 impl Extractable for clean::Crate {
-    fn extract(&self, prefix: &str, vis: Option<clean::Visibility>) {
+    fn extract(&self, indent_level: uint, prefix: &str, vis: Option<clean::Visibility>) {
+        print!("{}", " ".repeat(indent_level));
         println!("crate: {}", self.name);
         match self.module {
             Some(ref i) => {
-                i.extract(prefix + "::" + self.name, vis);
+                i.extract(indent_level, prefix + "::" + self.name, vis);
             }
             _ => ()
         }
@@ -43,25 +43,35 @@ impl Extractable for clean::Crate {
 }
 
 impl Extractable for clean::Item {
-    fn extract(&self, prefix: &str, vis: Option<clean::Visibility>) {
-        if self.visibility.is_none() { // unwrap_or(ast::Inherited) != ast::Public {
-            //println!("ignore");
-            //println!("debug {:?}", self);
-            //println!("{} vis => {:?}", prefix, self.visibility)
-            return
-        }
+    fn extract(&self, indent_level: uint, prefix: &str, vis: Option<clean::Visibility>) {
+        //if self.visibility.is_none() || vis.is_none() { // unwrap_or(ast::Inherited) != ast::Public {
+        //     //println!("ignore");
+        //     //println!("debug {:?}", self);
+        //println!("{} vis => {:?}", prefix, self.visibility)
+        //     return
+        //}
+        //println!("{} vis => {:?}", prefix, self.visibility);
         match self.name {
             Some(ref n) => {
-                println!("Item name => {}::{}", prefix,  n);
-                //println!("{}::{} vis => {:?}", prefix, n, self.visibility)
+                //println!("Item name => {}::{}", prefix,  n);
+                // print!("{}", " ".repeat(indent_level));
+                // println!("{}::{} vis => {:?}", prefix, n, self.visibility);
                 if n.len() > 0 {
-                    self.inner.extract(prefix + "::" + *n, self.visibility)
+                    if prefix.len() > 0 {
+                        self.inner.extract(indent_level, prefix + "::" + *n, self.visibility)
+                    } else {
+                        self.inner.extract(indent_level, *n, self.visibility)
+                    }
+
                 } else {
-                    self.inner.extract(prefix, self.visibility)
+                    self.inner.extract(indent_level, prefix, self.visibility) // .map(|v| v.inherit_from(vis.unwrap_or(ast::Inherited))))
                 }
             }
             _ => {
-                self.inner.extract(prefix, self.visibility)
+                // impl has no name
+                // print!("{}", " ".repeat(indent_level));
+                // println!("{} vis => {:?}", prefix, self.visibility);
+                self.inner.extract(indent_level, prefix, self.visibility) // .map(|v| v.inherit_from(vis.unwrap_or(ast::Inherited))))
                 //println!("Item name => {}::**", prefix);
                 //println!("debug => {:?}", self.inner)
             }
@@ -71,10 +81,11 @@ impl Extractable for clean::Item {
 }
 
 impl Extractable for clean::ItemEnum {
-    fn extract(&self, prefix: &str, vis: Option<clean::Visibility>) {
+    fn extract(&self, indent_level: uint, prefix: &str, vis: Option<clean::Visibility>) {
         match *self {
             clean::StructItem(ref s) => {
-                println!("Struct => {}", s.struct_type);
+                print!("{}", " ".repeat(indent_level));
+                println!("struct {} {}", prefix, s.struct_type);
                 for item in s.fields.iter() {
                     //println!("vis => {:?}", item.visibility);
                     if item.visibility.is_none() {
@@ -84,7 +95,8 @@ impl Extractable for clean::ItemEnum {
                         clean::StructFieldItem(ref f) => {
                             match *f {
                                 clean::TypedStructField(ref tp) => {
-                                    println!("  | {}: {}", item.name.as_ref().unwrap_or(&"".to_owned()), type_to_str(tp))
+                                    print!("{}", " ".repeat(indent_level+2));
+                                    println!("| {}: {}", item.name.as_ref().unwrap_or(&"".to_owned()), type_to_str(tp))
                                 }
                                 _ => () // HiddenStructField
                             }
@@ -97,37 +109,45 @@ impl Extractable for clean::ItemEnum {
                 }
             }
             clean::EnumItem(ref e) => {
-                println!("Enum => {}", generics_to_str(&e.generics));
+                print!("{}", " ".repeat(indent_level));
+                println!("enum {} => {}", prefix, generics_to_str(&e.generics));
                 for i in e.variants.iter() {
-                    println!("  | {}", i.name.as_ref().expect("a enum variant here"));
+                    print!("{}", " ".repeat(indent_level+2));
+                    println!("| {}", i.name.as_ref().expect("a enum variant here"));
                 }
             }
             clean::FunctionItem(ref f) => {
                 //println!("{}() => {} -> {:?}", prefix, f.decl.inputs, f.decl.output);
-                println!("vis => {:?}", vis);
-                println!("fn {}{}(...) -> {}", prefix, generics_to_str(&f.generics), type_to_str(&f.decl.output));
+                //println!("fn {}{}(...) -> {}", prefix, generics_to_str(&f.generics), type_to_str(&f.decl.output));
+                print!("{}", " ".repeat(indent_level));
+                println!("fn {}{}", prefix, function_to_str(f));
             }
+            // FIXME: regex , pub use can't handle
             clean::ModuleItem(ref m) => {
                 // is top level crate
                 //println!("is_crate: {}", m.is_crate);
                 //println!("vis => {:?}", vis);
                 // only pub mod
                 if vis.unwrap_or(ast::Inherited) == ast::Public {
+                    print!("{}", " ".repeat(indent_level));
                     println!("mod {}", prefix);
                     for item in m.items.iter() {
-                        item.extract(prefix, vis);
+                        item.extract(indent_level+2, prefix, vis);
                     }
                 }
             }
             clean::TypedefItem(ref t) => {
                 //println!("| {} {:?}", t.generics, t.type_);
                 //println!("typedef!");
+                print!("{}", " ".repeat(indent_level));
                 println!("type {} = {}{}", prefix, generics_to_str(&t.generics), type_to_str(&t.type_));
             }
             clean::StaticItem(ref s) => {
+                print!("{}", " ".repeat(indent_level));
                 println!("static {}: {}", prefix, type_to_str(&s.type_));
             }
             clean::TraitItem(ref t) => {
+                print!("{}", " ".repeat(indent_level));
                 println!("trait {}{}", prefix, generics_to_str(&t.generics))
                 for m in t.methods.iter() {
                     match *m {
@@ -135,7 +155,8 @@ impl Extractable for clean::ItemEnum {
                             let method_name = i.name.as_ref().expect("a method name");
                             match i.inner {
                                 clean::TyMethodItem(ref m) => {
-                                    println!("  | {}{}", method_name, tymethod_to_str(m))
+                                    print!("{}", " ".repeat(indent_level+2));
+                                    println!("| {}{}", method_name, tymethod_to_str(m))
                                 }
                                 _ => {
                                     unreachable!()
@@ -147,7 +168,8 @@ impl Extractable for clean::ItemEnum {
                             let method_name = i.name.as_ref().expect("a method name");
                             match i.inner {
                                 clean::MethodItem(ref m) => {
-                                    println!("  | {}{}", method_name, method_to_str(m))
+                                    print!("{}", " ".repeat(indent_level+2));
+                                    println!("| {}{}", method_name, method_to_str(m))
                                 }
                                 _ => {
                                     unreachable!()
@@ -158,28 +180,34 @@ impl Extractable for clean::ItemEnum {
                 }
             }
             clean::ImplItem(ref i) => {
+                print!("{}", " ".repeat(indent_level));
+                println!("impl @{}", prefix);
                 if i.trait_.is_some() {
-                    println!("impl {} for {}", i.trait_.as_ref().map(type_to_str).unwrap(), type_to_str(&i.for_))
+                    print!("{}", " ".repeat(indent_level));
+                    println!("impl{} {} for {}", generics_to_str(&i.generics), i.trait_.as_ref().map(type_to_str).unwrap(), type_to_str(&i.for_))
                 } else {
-                    println!("impl {}", type_to_str(&i.for_));
+                    print!("{}", " ".repeat(indent_level));
+                    println!("impl{} {}", generics_to_str(&i.generics), type_to_str(&i.for_));
                 }
                 for m in i.methods.iter() {
                     // methods
                     //println!("m.name => {}", m.name);
-                    //m.extract("."); //*m.name.as_ref().expect("a method name"));
-                    //m.extract(*m.name.as_ref().expect("a method name"));
-                    m.extract("", vis);
+                    //m.extract(indent_level, "."); //*m.name.as_ref().expect("a method name"));
+                    //m.extract(indent_level, *m.name.as_ref().expect("a method name"));
+                    m.extract(indent_level+2, "", vis);
                 }
             }
             clean::ViewItemItem(ref v) => {
-                v.extract(prefix, vis);
+                v.extract(indent_level, prefix, vis);
             }
             clean::MethodItem(ref m) => {
-                println!("{}{}", prefix, method_to_str(m));
+                print!("{}", " ".repeat(indent_level));
+                println!("| {}{}", prefix, method_to_str(m));
                 //dump_method_type(m);
             }
             clean::ForeignFunctionItem(ref f) => {
-                println!("extern fn {}()", prefix);
+                print!("{}", " ".repeat(indent_level));
+                println!("extern fn {}{}", prefix, function_to_str(f));
             }
             ref i => {
                 println!("unkown => {:?}", i);
@@ -189,7 +217,7 @@ impl Extractable for clean::ItemEnum {
 }
 
 impl Extractable for clean::ViewItem {
-    fn extract(&self, prefix: &str, vis: Option<clean::Visibility>) {
+    fn extract(&self, indent_level: uint, prefix: &str, vis: Option<clean::Visibility>) {
         //println!("{}::{}", prefix)
         match self.inner {
             clean::ExternCrate(ref name, ref cname_opt, _) => {
@@ -198,14 +226,17 @@ impl Extractable for clean::ViewItem {
             }
             clean::Import(ref vp) => {
                 //println!("import => {:?}", vp)
-                vp.extract(prefix, vis);
+                vp.extract(indent_level, prefix, vis);
             }
         }
     }
 }
 
 impl Extractable for clean::ViewPath {
-    fn extract(&self, prefix: &str, vis: Option<clean::Visibility>) {
+    fn extract(&self, indent_level: uint, prefix: &str, vis: Option<clean::Visibility>) {
+        if vis.is_none() {
+            return
+        }
         match *self {
             clean::SimpleImport(ref name, ref src) => {
                 //println!("{}::{} = {}", prefix, name, src.path)
@@ -218,9 +249,7 @@ impl Extractable for clean::ViewPath {
             clean::ImportList(ref src, ref lst) => {
                 //print!("{}:: use {}::\\{", prefix, src);
                 print!("use {}::\\{", src);
-                for ident in lst.iter() {
-                    print!("{},", ident.name)
-                }
+                print!("{}", lst.iter().map(|ident| format!("{}", ident.name)).collect::<Vec<~str>>().connect(", "));
                 println!("\\}")
             }
         }
@@ -260,6 +289,22 @@ fn generics_to_str(g: &clean::Generics) -> ~str {
     }
 }
 
+
+fn function_to_str(f: &clean::Function) -> ~str {
+    let mut ret = StrBuf::new();
+    ret.push_str(generics_to_str(&f.generics));
+    ret.push_str("(");
+    let mut args : Vec<~str> = Vec::new();
+
+    for arg in f.decl.inputs.values.iter() {
+        args.push(format!("{}: {}", arg.name, type_to_str(&arg.type_)));
+    }
+
+    ret.push_str(args.connect(", "));
+    ret.push_str(") -> ");
+    ret.push_str(format!("{}", type_to_str(&f.decl.output)));
+    ret.to_owned()
+}
 
 fn tymethod_to_str(m: &clean::TyMethod) -> ~str {
     let mut ret = StrBuf::new();
@@ -360,19 +405,21 @@ fn type_to_str(t: &clean::Type) -> ~str {
             ret.push_str(path_to_str(p));
             ret.to_owned()
         }
-        clean::ExternalPath { fqn: ref f, typarams: ref params, .. } => {
-            // println!("path {:?}", p); // only has last item
-            // println!("fqn {}", f);
-            // println!("pos2: {}", path_to_str(p));
-            ret.push_str("::");
-            ret.push_str(f.connect("::"));
-            if params.is_some() {
-                ret.push_str("<");
-                // ret.push_str(params.unwrap().iter().map(typaram_to_str).collect::<Vec<&str>>().connect(", "));
-                ret.push_str(">");
-            }
-            ret.to_owned()
-        }
+        // clean::ExternalPath { path: ref p, fqn: ref f, typarams: ref params, .. } => {
+        //     // println!("path {:?}", p); // only has last item
+        //     // println!("fqn {}", f);
+        //     // println!("pos2: {}", path_to_str(p));
+        //     ret.push_str("::");
+        //     ret.push_str(f.connect("::"));
+        //     if params.is_some() {
+        //         ret.push_str("<");
+        //         // ret.push_str(params.unwrap().iter().map(typaram_to_str).collect::<Vec<&str>>().connect(", "));
+        //         ret.push_str(">");
+        //     }
+        //     //println!("DEBUG !! =>{:?}", path_to_str(p));
+        //     //ret.to_owned()
+        //     path_to_str(p)
+        // }
         clean::Tuple(ref ts) => {
             ret.push_str("(");
             for t in ts.iter() {
@@ -384,19 +431,19 @@ fn type_to_str(t: &clean::Type) -> ~str {
         }
         clean::Primitive(ref p) => {
             match *p {
-                ast::TyInt(_) => "int",
-                ast::TyUint(_) => "uint",
-                ast::TyFloat(_) => "float",
-                ast::TyStr => "str",
-                ast::TyBool => "bool",
-                ast::TyChar => "char",
+                ast::TyInt(ref t) => t.to_str(),
+                ast::TyUint(ref t) => t.to_str(),
+                ast::TyFloat(ref t) => t.to_str(),
+                ast::TyStr => "str".to_owned(),
+                ast::TyBool => "bool".to_owned(),
+                ast::TyChar => "char".to_owned(),
             }.to_owned()
         }
         clean::FixedVector(ref tp, ref num) => {
             format!("[{}, ..{}]", type_to_str(*tp), num)
         }
         clean::Vector(ref tp) => {
-            format!("Vec<{}>", type_to_str(*tp))
+            format!("[{}]", type_to_str(*tp))
         }
         clean::String => "str".to_owned(),
         clean::Bool => "bool".to_owned(),
@@ -432,7 +479,7 @@ fn type_to_str(t: &clean::Type) -> ~str {
         clean::Closure(..) => "||".to_owned(),
         _ => {
             println!("pos1: {:?}", t);
-            "".to_owned()
+            "@@@".to_owned()
         }
     }
 }
@@ -442,9 +489,17 @@ fn path_to_str(p: &clean::Path) -> ~str {
     if p.global {
         ret.push_str("::")
     }
-    for seg in p.segments.iter() {
-        ret.push_str(seg.name)
-    }
+    ret.push_str(
+        p.segments.iter().map(|seg| {
+            let mut tmp = StrBuf::new();
+            tmp.push_str(seg.name);
+            if !seg.types.is_empty() {
+                tmp.push_str("<");
+                tmp.push_str(seg.types.iter().map(|t| type_to_str(t)).collect::<Vec<~str>>().connect(","));
+                tmp.push_str(">");
+            }
+            tmp.to_owned()
+        }).collect::<Vec<~str>>().connect("::"));
     ret.to_owned()
 }
 
@@ -475,7 +530,7 @@ pub fn rustdoc_plugin_entrypoint(c: clean::Crate) -> PluginResult {
     //     }
     // }
     println!("{}", "=".repeat(78));
-    c.extract("", Some(ast::Public));
+    c.extract(0, "", Some(ast::Public));
     (c, None)
 
 }

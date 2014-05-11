@@ -1,27 +1,32 @@
-.PHONY: all test test2 test3 test4 test5
+RUSTDOC ?= rustdoc
+RUSTC ?= rustc
+RUST_SRC_DIR ?= ~/Repos/rust
+
+.PHONY: all clean test test2 test3 test4 test5
 
 all: doc_extractor.dylib
 
-
+clean:
+	rm -rv *dylib*
 
 %.dylib: src/%.rs
-	rustc -g $< -o $@
+	$(RUSTC) $< -o $@
 
 
 test: all
-	rustdoc --plugin-path . --plugins doc_extractor ~/Repos/rust/src/libcollections/lib.rs
+	$(RUSTDOC) --plugin-path . --plugins doc_extractor $(RUST_SRC_DIR)/src/libcollections/lib.rs
 
 
 test2:
-	rustdoc --plugin-path . --plugins doc_extractor ~/Repos/rust/src/libregex/lib.rs
+	$(RUSTDOC) --plugin-path . --plugins doc_extractor $(RUST_SRC_DIR)/src/libregex/lib.rs
 
 test3:
-	rustdoc --plugin-path . --plugins doc_extractor ~/Repos/rust/src/liblibc/lib.rs
+	$(RUSTDOC) --plugin-path . --plugins doc_extractor $(RUST_SRC_DIR)/src/liblibc/lib.rs
 
 
 test4:
-	rustdoc --plugin-path . --plugins doc_extractor ~/Repos/rust/src/libgraphviz/lib.rs
+	$(RUSTDOC) --plugin-path . --plugins doc_extractor $(RUST_SRC_DIR)/src/libgraphviz/lib.rs
 
 
 test5:
-	rustdoc --plugin-path . --plugins doc_extractor ../rust-sdl2/src/sdl2/lib.rs
+	$(RUSTDOC) --plugin-path . --plugins doc_extractor ../rust-sdl2/src/sdl2/lib.rs

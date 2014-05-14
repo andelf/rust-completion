@@ -128,7 +128,7 @@ impl Extractable for clean::ItemEnum {
                 //println!("is_crate: {}", m.is_crate);
                 //println!("vis => {:?}", vis);
                 // only pub mod
-                if vis.unwrap_or(ast::Inherited) == ast::Public {
+                if vis.unwrap_or(ast::Inherited) == ast::Public || true {
                     print!("{}", " ".repeat(indent_level));
                     println!("mod {}", prefix);
                     for item in m.items.iter() {
@@ -477,6 +477,8 @@ fn type_to_str(t: &clean::Type) -> ~str {
         clean::Generic(ref g) => format!("T_{}", *g),
         clean::Self(..) => "Self".to_owned(),
         clean::Closure(..) => "||".to_owned(),
+        clean::Proc(..) => "proc()".to_owned(),
+        clean::BareFunction(..) => "fn()".to_owned(),
         _ => {
             println!("pos1: {:?}", t);
             "@@@".to_owned()

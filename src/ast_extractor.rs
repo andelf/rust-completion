@@ -1,4 +1,4 @@
-#![feature(managed_boxes)]
+#![feature(managed_boxes, globs)]
 
 extern crate syntax;
 extern crate rustc;
@@ -18,14 +18,19 @@ use std::cell::RefCell;
 use std::os;
 use collections::{HashSet, HashMap};
 use rustdoc::core::{CrateAnalysis,DocContext, MaybeTyped, Typed, NotTyped};
-use rustdoc::visit_ast::RustdocVisitor;
+
 use rustdoc::clean::Clean;
 use std::local_data::Key;
+
+//use rustdoc::visit_ast::RustdocVisitor;
+
+use visitor::RustdocVisitor;
+
 
 pub static analysiskey: Key<CrateAnalysis> = &Key;
 pub static ctxtkey: Key<@DocContext> = &Key;
 
-
+mod visitor;
 /// Parses, resolves, and typechecks the given crate
 fn get_ast_and_resolve(cpath: &Path, libs: HashSet<Path>, cfgs: Vec<StrBuf>) -> (DocContext, CrateAnalysis) {
     use syntax::codemap::dummy_spanned;
@@ -45,9 +50,8 @@ fn get_ast_and_resolve(cpath: &Path, libs: HashSet<Path>, cfgs: Vec<StrBuf>) -> 
         ..rustc::driver::config::basic_options().clone()
     };
 
-
     let codemap = syntax::codemap::CodeMap::new();
-    let diagnostic_handler = syntax::diagnostic::default_handler();
+    let diagnostic_handler = syntax::diagnostic::default_handler(syntax::diagnostic::Auto);
     let span_diagnostic_handler =
         syntax::diagnostic::mk_span_handler(diagnostic_handler, codemap);
 
@@ -100,6 +104,7 @@ pub fn run_core(libs: HashSet<Path>, cfgs: Vec<StrBuf>, path: &Path) {
     for i in module.structs.iter() {
         println!("struct name => {}", token::get_ident(i.name).get())
     }
+
     for i in module.impls.iter() {
         println!("impl for => {:?}", i.for_);
     }

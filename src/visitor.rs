@@ -21,6 +21,9 @@ use syntax::codemap::Span;
 use rustdoc::core;
 use rustdoc::doctree::*;
 
+use utils::*;
+mod utils;
+
 pub struct RustdocVisitor<'a> {
     pub module: Module,
     pub attrs: Vec<ast::Attribute>,
@@ -56,7 +59,6 @@ impl<'a> RustdocVisitor<'a> {
 
     pub fn visit_struct_def(&mut self, item: &ast::Item, sd: @ast::StructDef,
                             generics: &ast::Generics) -> Struct {
-        println!("Visiting struct");
         let struct_type = struct_type_from_def(sd);
         Struct {
             id: item.id,
@@ -72,7 +74,6 @@ impl<'a> RustdocVisitor<'a> {
 
     pub fn visit_enum_def(&mut self, it: &ast::Item, def: &ast::EnumDef,
                           params: &ast::Generics) -> Enum {
-        println!("Visiting enum");
         let mut vars: Vec<Variant> = Vec::new();
         for x in def.variants.iter() {
             vars.push(Variant {
@@ -98,7 +99,6 @@ impl<'a> RustdocVisitor<'a> {
     pub fn visit_fn(&mut self, item: &ast::Item, fd: &ast::FnDecl,
                     fn_style: &ast::FnStyle, _abi: &abi::Abi,
                     gen: &ast::Generics) -> Function {
-        println!("Visiting fn");
         Function {
             id: item.id,
             vis: item.vis,
@@ -134,6 +134,8 @@ impl<'a> RustdocVisitor<'a> {
         if item.vis != ast::Public {
             return om.view_items.push(item.clone());
         }
+        //println!("fuck to push. {:?}, item", item);
+        println!("visitor vi => {}", view_item_to_str(item));
         let please_inline = item.attrs.iter().any(|item| {
             match item.meta_item_list() {
                 Some(list) => {
@@ -228,7 +230,6 @@ impl<'a> RustdocVisitor<'a> {
     }
 
     pub fn visit_item(&mut self, item: &ast::Item, om: &mut Module) {
-        println!("Visiting item {:?}", item);
         match item.node {
             ast::ItemMod(ref m) => {
                 om.mods.push(self.visit_mod_contents(item.span,
@@ -286,6 +287,9 @@ impl<'a> RustdocVisitor<'a> {
                 om.traits.push(t);
             },
             ast::ItemImpl(ref gen, ref tr, ty, ref meths) => {
+                println!("impl for => {}", ty.id);
+                println!("type = {:?}", ty_to_str(ty));
+
                 let i = Impl {
                     generics: gen.clone(),
                     trait_: tr.clone(),

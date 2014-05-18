@@ -12,7 +12,7 @@ clean:
 %.dylib: src/%.rs
 	$(RUSTC) $< -o $@
 
-ast_extractor: src/ast_extractor.rs
+ast_extractor: src/ast_extractor.rs src/visitor.rs
 	$(RUSTC) $< -o $@
 
 test: all

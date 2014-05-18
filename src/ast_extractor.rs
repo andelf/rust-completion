@@ -26,11 +26,15 @@ use std::local_data::Key;
 
 use visitor::RustdocVisitor;
 
+use utils::*;
+
 
 pub static analysiskey: Key<CrateAnalysis> = &Key;
 pub static ctxtkey: Key<@DocContext> = &Key;
 
+mod utils;
 mod visitor;
+
 /// Parses, resolves, and typechecks the given crate
 fn get_ast_and_resolve(cpath: &Path, libs: HashSet<Path>, cfgs: Vec<StrBuf>) -> (DocContext, CrateAnalysis) {
     use syntax::codemap::dummy_spanned;
@@ -97,16 +101,20 @@ pub fn run_core(libs: HashSet<Path>, cfgs: Vec<StrBuf>, path: &Path) {
     v.visit(&ctxt.krate);                                        // no clean here
 
     let module = v.module;
-    println!("mudule => {:?}", module);
+    println!("{}", "=".repeat(60));
+    // println!("mudule => {:?}", module);
     for i in module.view_items.iter() {
         println!("vi => {}", view_item_to_str(i));
     }
     for i in module.structs.iter() {
-        println!("struct name => {}", token::get_ident(i.name).get())
+        println!("struct name => {} id = {}", token::get_ident(i.name).get(), i.id)
     }
 
     for i in module.impls.iter() {
         println!("impl for => {:?}", i.for_);
+    }
+    for m in module.mods.iter() {
+        println!("sub mod => {:?}", m.name.map(|ident| token::get_ident(ident).get().to_owned()));
     }
 }
 
@@ -143,93 +151,4 @@ fn main() {
     //     println!("-> {:?}", ctx.map.get(*node_id));
     // }
     println!("Hello World!");
-}
-
-fn view_item_to_str(i: &ast::ViewItem) -> ~str {
-    let mut ret = StrBuf::new();
-    match i.node {
-        // ignore
-        ast::ViewItemExternCrate(ref ident, ref location, _) => {
-            ret.push_str("extern crate ");
-            ret.push_str(token::get_ident(*ident).get());
-            if location.is_some() {
-                ret.push_str(format!(" = {}", location.as_ref().unwrap().ref0()));
-            }
-        }
-        // pub use
-        ast::ViewItemUse(ref vp) => {
-            if i.vis == ast::Public {
-                ret.push_str("pub ")
-            }
-            ret.push_str("use ");
-            match vp.node {
-                ast::ViewPathSimple(ref ident, ref path, _) => {
-                    ret.push_str(format!("{} = {}",
-                                         token::get_ident(*ident).get(),
-                                         path_to_str(path)
-                                         ));
-                }
-                ast::ViewPathGlob(ref path, _) => {
-                    ret.push_str(format!("{}::*", path_to_str(path)));
-                }
-                ast::ViewPathList(ref path, ref idents, _) => {
-                    ret.push_str(format!("{}::", path_to_str(path)));
-                    if !idents.is_empty() {
-                        ret.push_str("{");
-                        ret.push_str(idents.iter().map(|i| token::get_ident(i.node.name).get().to_owned()).collect::<Vec<~str>>().connect(","));
-                        ret.push_str("}");
-                    }
-                }
-            }
-        }
-    }
-    ret.to_owned()
-}
-
-fn path_to_str(i: &ast::Path) -> ~str {
-    let mut ret = StrBuf::new();
-    if i.global { ret.push_str("::") }
-    ret.push_str(i.segments.iter().map(|seg| token::get_ident(seg.identifier).get().to_owned()).collect::<Vec<~str>>().connect("::"));
-    ret.to_owned()
-}
-
-fn item_to_str(i: &ast::Item) -> ~str {
-    let mut ret = StrBuf::new();
-    if i.vis == ast::Public {
-        ret.push_str(format!("pub "));
-    }
-    match i.node {
-        ast::ItemStatic(..) => {
-            ret.push_str(format!("ItemStatic"));
-        }
-        ast::ItemFn(..) => {
-            ret.push_str(format!("ItemFn"));
-        }
-        ast::ItemMod(..) => {
-            ret.push_str(format!("ItemMod"));
-        }
-        ast::ItemForeignMod(..) => {
-            ret.push_str(format!("ItemForeignMod"));
-        }
-        ast::ItemTy(..) => {
-            ret.push_str(format!("ItemTy"));
-        }
-        ast::ItemEnum(..) => {
-            ret.push_str(format!("ItemEnum"));
-        }
-        ast::ItemStruct(..) => {
-            ret.push_str(format!("ItemStruct"));
-        }
-        ast::ItemTrait(..) => {
-            ret.push_str(format!("ItemTrait"));
-        }
-        ast::ItemImpl(..) => {
-            ret.push_str(format!("ItemImpl"));
-        }
-        ast::ItemMac(..) => {
-            ret.push_str(format!("ItemMac"));
-        }
-    }
-    ret.push_str(format!(" ITEM: {} ", i.ident.to_source()));
-    ret.to_owned()
 }

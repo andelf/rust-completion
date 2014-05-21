@@ -35,7 +35,7 @@ impl Extractable for clean::Crate {
         println!("crate: {}", self.name);
         match self.module {
             Some(ref i) => {
-                i.extract(indent_level, prefix + "::" + self.name, vis);
+                i.extract(indent_level, prefix + "::" + self.name.as_slice(), vis);
             }
             _ => ()
         }
@@ -58,9 +58,9 @@ impl Extractable for clean::Item {
                 // println!("{}::{} vis => {:?}", prefix, n, self.visibility);
                 if n.len() > 0 {
                     if prefix.len() > 0 {
-                        self.inner.extract(indent_level, prefix + "::" + *n, self.visibility)
+                        self.inner.extract(indent_level, prefix + "::" + n.as_slice(), self.visibility)
                     } else {
-                        self.inner.extract(indent_level, *n, self.visibility)
+                        self.inner.extract(indent_level, n.as_slice(), self.visibility)
                     }
 
                 } else {
@@ -96,7 +96,7 @@ impl Extractable for clean::ItemEnum {
                             match *f {
                                 clean::TypedStructField(ref tp) => {
                                     print!("{}", " ".repeat(indent_level+2));
-                                    println!("| {}: {}", item.name.as_ref().unwrap_or(&"".to_owned()), type_to_str(tp))
+                                    println!("| {}: {}", item.name.as_ref().unwrap_or(&"".to_strbuf()), type_to_str(tp))
                                 }
                                 _ => () // HiddenStructField
                             }
@@ -494,7 +494,7 @@ fn path_to_str(p: &clean::Path) -> ~str {
     ret.push_str(
         p.segments.iter().map(|seg| {
             let mut tmp = StrBuf::new();
-            tmp.push_str(seg.name);
+            tmp.push_str(seg.name.as_slice());
             if !seg.types.is_empty() {
                 tmp.push_str("<");
                 tmp.push_str(seg.types.iter().map(|t| type_to_str(t)).collect::<Vec<~str>>().connect(","));

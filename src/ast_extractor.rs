@@ -50,7 +50,7 @@ fn get_ast_and_resolve(cpath: &Path, libs: HashSet<Path>, cfgs: Vec<StrBuf>) -> 
         maybe_sysroot: Some(Path::new("/Users/wangshuyu/opt/rust/")),
         addl_lib_search_paths: RefCell::new(libs),
         crate_types: vec!(driver::config::CrateTypeDylib),
-        lint_opts: vec!((lint::Warnings, lint::allow)),
+        lint_opts: vec!((lint::Warnings, lint::Allow)),
         ..rustc::driver::config::basic_options().clone()
     };
 

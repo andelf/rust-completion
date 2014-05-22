@@ -22,7 +22,6 @@ use rustdoc::core;
 use rustdoc::doctree::*;
 
 use utils::*;
-mod utils;
 
 pub struct RustdocVisitor<'a> {
     pub module: Module,

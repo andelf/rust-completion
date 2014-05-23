@@ -17,6 +17,8 @@ use syntax::ast_util;
 use syntax::ast_map;
 use syntax::attr::AttrMetaMethods;
 use syntax::codemap::Span;
+use syntax::crateid::CrateId;
+use syntax::parse::token;
 
 use rustdoc::core;
 use rustdoc::doctree::*;
@@ -28,6 +30,8 @@ pub struct RustdocVisitor<'a> {
     pub attrs: Vec<ast::Attribute>,
     pub cx: &'a core::DocContext,
     pub analysis: Option<&'a core::CrateAnalysis>,
+    pub names: Vec<StrBuf>,
+    current_prefix: StrBuf,
 }
 
 impl<'a> RustdocVisitor<'a> {
@@ -38,12 +42,33 @@ impl<'a> RustdocVisitor<'a> {
             attrs: Vec::new(),
             cx: cx,
             analysis: analysis,
+            names: Vec::new(),
+            current_prefix: StrBuf::new(),
         }
     }
 
     pub fn visit(&mut self, krate: &ast::Crate) {
+        let mut crate_id = StrBuf::new();
         self.attrs = krate.attrs.iter().map(|x| (*x).clone()).collect();
+        for attr in self.attrs.iter() {
+            match attr.node.value.node {
+                ast::MetaNameValue(ref name, ref val) => {
+                    if name.get() == "crate_id" {
+                        match val.node {
+                            ast::LitStr(ref crateid, _) => {
+                                let cid: CrateId = from_str(crateid.get()).unwrap();
+                                crate_id.push_str(cid.name.as_slice());
+                            }
+                            _ => {}
+                        }
+                    }
 
+                }
+                _ => {}
+            }
+        }
+
+        self.current_prefix = crate_id;
         self.module = self.visit_mod_contents(krate.span,
                                               krate.attrs
                                                    .iter()
@@ -148,6 +173,7 @@ impl<'a> RustdocVisitor<'a> {
                 match self.visit_view_path(*vpath, om, please_inline) {
                     None => return,
                     Some(path) => {
+                        //println!("use path => {:?}", path);
                         ast::ViewItem {
                             node: ast::ViewItemUse(path),
                             .. item.clone()
@@ -164,7 +190,9 @@ impl<'a> RustdocVisitor<'a> {
                        om: &mut Module,
                        please_inline: bool) -> Option<@ast::ViewPath> {
         match path.node {
-            ast::ViewPathSimple(_, _, id) => {
+            ast::ViewPathSimple(ref ident, _, id) => {
+
+                println!("! {}::{}", self.current_prefix, token::get_ident(*ident));
                 if self.resolve_id(id, false, om, please_inline) { return None }
             }
             ast::ViewPathList(ref p, ref paths, ref b) => {

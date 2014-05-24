@@ -82,10 +82,14 @@ fn get_ast_and_resolve(cpath: &Path, libs: HashSet<Path>, cfgs: Vec<StrBuf>) -> 
         krate: krate,
         maybe_typed: Typed(ty_cx),
         src: cpath.clone(),
+        external_traits: RefCell::new(Some(HashMap::new())),
+        external_typarams: RefCell::new(Some(HashMap::new())),
         external_paths: RefCell::new(Some(HashMap::new())),
     }, CrateAnalysis {
         exported_items: exported_items,
         public_items: public_items,
+        external_traits: RefCell::new(None),
+        external_typarams: RefCell::new(None),
         external_paths: RefCell::new(None),
     })
 }

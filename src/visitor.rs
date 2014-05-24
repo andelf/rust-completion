@@ -84,6 +84,7 @@ impl<'a> RustdocVisitor<'a> {
     pub fn visit_struct_def(&mut self, item: &ast::Item, sd: @ast::StructDef,
                             generics: &ast::Generics) -> Struct {
         let struct_type = struct_type_from_def(sd);
+        println!("!s {}::{}", self.current_prefix, token::get_ident(item.ident));
         Struct {
             id: item.id,
             struct_type: struct_type,
@@ -100,6 +101,7 @@ impl<'a> RustdocVisitor<'a> {
                           params: &ast::Generics) -> Enum {
         let mut vars: Vec<Variant> = Vec::new();
         for x in def.variants.iter() {
+            println!("!e|{}::{}", self.current_prefix, token::get_ident(x.node.name));
             vars.push(Variant {
                 name: x.node.name,
                 attrs: x.node.attrs.iter().map(|x| *x).collect(),
@@ -159,7 +161,7 @@ impl<'a> RustdocVisitor<'a> {
             return om.view_items.push(item.clone());
         }
         //println!("fuck to push. {:?}, item", item);
-        println!("visitor vi => {}", view_item_to_str(item));
+        println!("// visitor vi => {}", view_item_to_str(item));
         let please_inline = item.attrs.iter().any(|item| {
             match item.meta_item_list() {
                 Some(list) => {
@@ -192,12 +194,14 @@ impl<'a> RustdocVisitor<'a> {
         match path.node {
             ast::ViewPathSimple(ref ident, _, id) => {
 
-                println!("! {}::{}", self.current_prefix, token::get_ident(*ident));
+                println!("!  {}::{}", self.current_prefix, token::get_ident(*ident));
                 if self.resolve_id(id, false, om, please_inline) { return None }
             }
             ast::ViewPathList(ref p, ref paths, ref b) => {
                 let mut mine = Vec::new();
                 for path in paths.iter() {
+                    let finnal_seg = path.node.name.clone();
+                    println!("!* {}::{}", self.current_prefix, token::get_ident(finnal_seg));
                     if !self.resolve_id(path.node.id, false, om, please_inline) {
                         mine.push(path.clone());
                     }
@@ -212,6 +216,7 @@ impl<'a> RustdocVisitor<'a> {
 
             // these are feature gated anyway
             ast::ViewPathGlob(_, id) => {
+                println!("!! {}::*", self.current_prefix); // not support
                 if self.resolve_id(id, true, om, please_inline) { return None }
             }
         }
@@ -257,8 +262,12 @@ impl<'a> RustdocVisitor<'a> {
     }
 
     pub fn visit_item(&mut self, item: &ast::Item, om: &mut Module) {
+        let name = token::get_ident(item.ident);
         match item.node {
             ast::ItemMod(ref m) => {
+                let old_prefix = self.current_prefix.clone();
+                println!("!m {}::{}", self.current_prefix, name);
+                self.current_prefix = StrBuf::from_owned_str(format!("{}::{}", self.current_prefix, name));
                 om.mods.push(self.visit_mod_contents(item.span,
                                                      item.attrs
                                                          .iter()
@@ -268,14 +277,25 @@ impl<'a> RustdocVisitor<'a> {
                                                      item.id,
                                                      m,
                                                      Some(item.ident)));
+                self.current_prefix = old_prefix;
             },
-            ast::ItemEnum(ref ed, ref gen) =>
-                om.enums.push(self.visit_enum_def(item, ed, gen)),
+            ast::ItemEnum(ref ed, ref gen) => {
+                //let old_prefix = self.current_prefix.clone();
+                //println!("!e {}::{}", self.current_prefix, name);
+                //self.current_prefix = StrBuf::from_owned_str(format!("{}::{}", self.current_prefix, name));
+                // enum variant share same prefix as enum
+                om.enums.push(self.visit_enum_def(item, ed, gen));
+
+                //self.current_prefix = old_prefix;
+            },
             ast::ItemStruct(sd, ref gen) =>
                 om.structs.push(self.visit_struct_def(item, sd, gen)),
-            ast::ItemFn(fd, ref pur, ref abi, ref gen, _) =>
-                om.fns.push(self.visit_fn(item, fd, pur, abi, gen)),
+            ast::ItemFn(fd, ref pur, ref abi, ref gen, _) => {
+                println!("!f {}::{}", self.current_prefix, name);
+                om.fns.push(self.visit_fn(item, fd, pur, abi, gen));
+            },
             ast::ItemTy(ty, ref gen) => {
+                println!("!t {}::{}", self.current_prefix, name);
                 let t = Typedef {
                     ty: ty,
                     gen: gen.clone(),
@@ -288,6 +308,7 @@ impl<'a> RustdocVisitor<'a> {
                 om.typedefs.push(t);
             },
             ast::ItemStatic(ty, ref mut_, ref exp) => {
+                println!("!_ {}::{}", self.current_prefix, name);
                 let s = Static {
                     type_: ty,
                     mutability: mut_.clone(),
@@ -301,6 +322,7 @@ impl<'a> RustdocVisitor<'a> {
                 om.statics.push(s);
             },
             ast::ItemTrait(ref gen, _, ref tr, ref met) => {
+                println!("!T {}::{}", self.current_prefix, name);
                 let t = Trait {
                     name: item.ident,
                     methods: met.iter().map(|x| (*x).clone()).collect(),
@@ -314,8 +336,10 @@ impl<'a> RustdocVisitor<'a> {
                 om.traits.push(t);
             },
             ast::ItemImpl(ref gen, ref tr, ty, ref meths) => {
+                // TODO
                 println!("impl for => {}", ty.id);
-                println!("type = {:?}", ty_to_str(ty));
+                // println!("type = {:?}", ty_to_str(ty));
+                println!("imp name = {}", name);
 
                 let i = Impl {
                     generics: gen.clone(),

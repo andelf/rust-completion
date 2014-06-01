@@ -1,7 +1,7 @@
 #![crate_id = "doc_extractor#0.1"]
 #![crate_type = "dylib"]
 
-
+extern crate debug;
 extern crate rustdoc;
 extern crate syntax;
 extern crate collections;
@@ -20,7 +20,7 @@ use rustdoc::plugins::PluginResult;
 
 // #[deriving(Eq, Hash, Show)]
 // pub enum CompletionPart {
-//     PathSegment(~str),
+//     PathSegment(String),
 //     Struct
 // }
 
@@ -35,7 +35,7 @@ impl Extractable for clean::Crate {
         println!("crate: {}", self.name);
         match self.module {
             Some(ref i) => {
-                i.extract(indent_level, prefix + "::" + self.name.as_slice(), vis);
+                i.extract(indent_level, vec!(prefix.clone(), "::", self.name.as_slice()).concat().as_slice(), vis);
             }
             _ => ()
         }
@@ -58,7 +58,7 @@ impl Extractable for clean::Item {
                 // println!("{}::{} vis => {:?}", prefix, n, self.visibility);
                 if n.len() > 0 {
                     if prefix.len() > 0 {
-                        self.inner.extract(indent_level, prefix + "::" + n.as_slice(), self.visibility)
+                        self.inner.extract(indent_level, vec!(prefix, "::", n.as_slice()).concat().as_slice(), self.visibility)
                     } else {
                         self.inner.extract(indent_level, n.as_slice(), self.visibility)
                     }
@@ -96,7 +96,7 @@ impl Extractable for clean::ItemEnum {
                             match *f {
                                 clean::TypedStructField(ref tp) => {
                                     print!("{}", " ".repeat(indent_level+2));
-                                    println!("| {}: {}", item.name.as_ref().unwrap_or(&"".to_strbuf()), type_to_str(tp))
+                                    println!("| {}: {}", item.name.as_ref().unwrap_or(&"".to_string()), type_to_str(tp))
                                 }
                                 _ => () // HiddenStructField
                             }
@@ -249,15 +249,15 @@ impl Extractable for clean::ViewPath {
             clean::ImportList(ref src, ref lst) => {
                 //print!("{}:: use {}::\\{", prefix, src);
                 print!("use {}::\\{", src);
-                print!("{}", lst.iter().map(|ident| format!("{}", ident.name)).collect::<Vec<~str>>().connect(", "));
+                print!("{}", lst.iter().map(|ident| format!("{}", ident.name)).collect::<Vec<String>>().connect(", "));
                 println!("\\}")
             }
         }
     }
 }
 
-fn typaram_to_str(t: &clean::TyParam) -> ~str {
-    let mut ret = StrBuf::new();
+fn typaram_to_str(t: &clean::TyParam) -> String {
+    let mut ret = String::new();
     //ret.push_str(t.name);
     ret.push_str(format!("T_{}", t.id));
     if !t.bounds.is_empty() {
@@ -277,7 +277,7 @@ fn typaram_to_str(t: &clean::TyParam) -> ~str {
     ret.to_owned()
 }
 
-fn generics_to_str(g: &clean::Generics) -> ~str {
+fn generics_to_str(g: &clean::Generics) -> String {
     let mut segs = Vec::new();
     g.lifetimes.iter().map(|ref l| segs.push(format!("'{}", l.get_ref()))).collect::<Vec<()>>();
     g.type_params.iter().map(|ref t| segs.push(typaram_to_str(*t))).collect::<Vec<()>>();
@@ -290,11 +290,11 @@ fn generics_to_str(g: &clean::Generics) -> ~str {
 }
 
 
-fn function_to_str(f: &clean::Function) -> ~str {
-    let mut ret = StrBuf::new();
+fn function_to_str(f: &clean::Function) -> String {
+    let mut ret = String::new();
     ret.push_str(generics_to_str(&f.generics));
     ret.push_str("(");
-    let mut args : Vec<~str> = Vec::new();
+    let mut args : Vec<String> = Vec::new();
 
     for arg in f.decl.inputs.values.iter() {
         args.push(format!("{}: {}", arg.name, type_to_str(&arg.type_)));
@@ -306,11 +306,11 @@ fn function_to_str(f: &clean::Function) -> ~str {
     ret.to_owned()
 }
 
-fn tymethod_to_str(m: &clean::TyMethod) -> ~str {
-    let mut ret = StrBuf::new();
+fn tymethod_to_str(m: &clean::TyMethod) -> String {
+    let mut ret = String::new();
     ret.push_str(generics_to_str(&m.generics));
     ret.push_str("(");
-    let mut args : Vec<~str> = Vec::new();
+    let mut args : Vec<String> = Vec::new();
     match m.self_ {
         clean::SelfStatic => (),
         clean::SelfValue  => {
@@ -340,8 +340,8 @@ fn tymethod_to_str(m: &clean::TyMethod) -> ~str {
     ret.to_owned()
 
 }
-fn method_to_str(m: &clean::Method) -> ~str {
-    let mut ret = StrBuf::new();
+fn method_to_str(m: &clean::Method) -> String {
+    let mut ret = String::new();
     ret.push_str(generics_to_str(&m.generics));
     ret.push_str("(");
     // for l in m.generics.lifetimes.iter() {
@@ -358,7 +358,7 @@ fn method_to_str(m: &clean::Method) -> ~str {
     //     ret.push_str("(")
     // }
 
-    let mut args : Vec<~str> = Vec::new();
+    let mut args : Vec<String> = Vec::new();
     match m.self_ {
         clean::SelfStatic => (),
         clean::SelfValue  => {
@@ -394,8 +394,8 @@ fn method_to_str(m: &clean::Method) -> ~str {
 
 
 
-fn type_to_str(t: &clean::Type) -> ~str {
-    let mut ret = StrBuf::new();
+fn type_to_str(t: &clean::Type) -> String {
+    let mut ret = String::new();
     match *t {
         clean::ResolvedPath { path: ref p, .. } => {
             //format!("{}", p)  // empty
@@ -486,22 +486,22 @@ fn type_to_str(t: &clean::Type) -> ~str {
     }
 }
 
-fn path_to_str(p: &clean::Path) -> ~str {
-    let mut ret = StrBuf::new();
+fn path_to_str(p: &clean::Path) -> String {
+    let mut ret = String::new();
     if p.global {
         ret.push_str("::")
     }
     ret.push_str(
         p.segments.iter().map(|seg| {
-            let mut tmp = StrBuf::new();
+            let mut tmp = String::new();
             tmp.push_str(seg.name.as_slice());
             if !seg.types.is_empty() {
                 tmp.push_str("<");
-                tmp.push_str(seg.types.iter().map(|t| type_to_str(t)).collect::<Vec<~str>>().connect(","));
+                tmp.push_str(seg.types.iter().map(|t| type_to_str(t)).collect::<Vec<String>>().connect(","));
                 tmp.push_str(">");
             }
             tmp.to_owned()
-        }).collect::<Vec<~str>>().connect("::"));
+        }).collect::<Vec<String>>().connect("::"));
     ret.to_owned()
 }
 

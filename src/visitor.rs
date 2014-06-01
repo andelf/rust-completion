@@ -30,8 +30,8 @@ pub struct RustdocVisitor<'a> {
     pub attrs: Vec<ast::Attribute>,
     pub cx: &'a core::DocContext,
     pub analysis: Option<&'a core::CrateAnalysis>,
-    pub names: Vec<StrBuf>,
-    current_prefix: StrBuf,
+    pub names: Vec<String>,
+    current_prefix: String,
 }
 
 impl<'a> RustdocVisitor<'a> {
@@ -43,12 +43,12 @@ impl<'a> RustdocVisitor<'a> {
             cx: cx,
             analysis: analysis,
             names: Vec::new(),
-            current_prefix: StrBuf::new(),
+            current_prefix: String::new(),
         }
     }
 
     pub fn visit(&mut self, krate: &ast::Crate) {
-        let mut crate_id = StrBuf::new();
+        let mut crate_id = String::new();
         self.attrs = krate.attrs.iter().map(|x| (*x).clone()).collect();
         for attr in self.attrs.iter() {
             match attr.node.value.node {
@@ -267,7 +267,7 @@ impl<'a> RustdocVisitor<'a> {
             ast::ItemMod(ref m) => {
                 let old_prefix = self.current_prefix.clone();
                 println!("!m {}::{}", self.current_prefix, name);
-                self.current_prefix = StrBuf::from_owned_str(format!("{}::{}", self.current_prefix, name));
+                self.current_prefix = String::from_owned_str(format!("{}::{}", self.current_prefix, name));
                 om.mods.push(self.visit_mod_contents(item.span,
                                                      item.attrs
                                                          .iter()
@@ -282,7 +282,7 @@ impl<'a> RustdocVisitor<'a> {
             ast::ItemEnum(ref ed, ref gen) => {
                 //let old_prefix = self.current_prefix.clone();
                 //println!("!e {}::{}", self.current_prefix, name);
-                //self.current_prefix = StrBuf::from_owned_str(format!("{}::{}", self.current_prefix, name));
+                //self.current_prefix = String::from_owned_str(format!("{}::{}", self.current_prefix, name));
                 // enum variant share same prefix as enum
                 om.enums.push(self.visit_enum_def(item, ed, gen));
 
@@ -338,6 +338,13 @@ impl<'a> RustdocVisitor<'a> {
             ast::ItemImpl(ref gen, ref tr, ty, ref meths) => {
                 // TODO
                 println!("impl for => {}", ty.id);
+
+                match ty.node {
+                    ast::TyPath(ref p, _, _) => {
+                        println!("!!!!!!!!!! {}", path_to_str(p));
+                    },
+                    _ => {}
+                }
                 // println!("type = {:?}", ty_to_str(ty));
                 println!("imp name = {}", name);
 

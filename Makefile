@@ -4,7 +4,7 @@ RUST_SRC_DIR ?= ~/Repos/rust
 
 .PHONY: all clean test test2 test3 test4 test5
 
-all: doc_extractor.dylib ast_extractor
+all: ast_extractor # doc_extractor.dylib
 
 clean:
 	rm -rv *dylib*

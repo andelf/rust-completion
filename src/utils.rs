@@ -2,8 +2,8 @@ use syntax::parse::token;
 use syntax::ast;
 use syntax::ext::quote::rt::ToSource;
 
-pub fn view_item_to_str(i: &ast::ViewItem) -> StrBuf {
-    let mut ret = StrBuf::new();
+pub fn view_item_to_str(i: &ast::ViewItem) -> String {
+    let mut ret = String::new();
     match i.node {
         // ignore
         ast::ViewItemExternCrate(ref ident, ref location, _) => {
@@ -33,7 +33,7 @@ pub fn view_item_to_str(i: &ast::ViewItem) -> StrBuf {
                     ret.push_str(format!("{}::", path_to_str(path).as_slice()).as_slice());
                     if !idents.is_empty() {
                         ret.push_str("{");
-                        ret.push_str(idents.iter().map(|i| token::get_ident(i.node.name).get().to_owned()).collect::<Vec<StrBuf>>().connect(",").as_slice());
+                        ret.push_str(idents.iter().map(|i| token::get_ident(i.node.name).get().to_owned()).collect::<Vec<String>>().connect(",").as_slice());
                         ret.push_str("}");
                     }
                 }
@@ -43,15 +43,15 @@ pub fn view_item_to_str(i: &ast::ViewItem) -> StrBuf {
     ret
 }
 
-pub fn path_to_str(i: &ast::Path) -> StrBuf {
-    let mut ret = StrBuf::new();
+pub fn path_to_str(i: &ast::Path) -> String {
+    let mut ret = String::new();
     if i.global { ret.push_str("::") }
-    ret.push_str(i.segments.iter().map(|seg| token::get_ident(seg.identifier).get().to_owned()).collect::<Vec<StrBuf>>().connect("::").as_slice());
+    ret.push_str(i.segments.iter().map(|seg| token::get_ident(seg.identifier).get().to_owned()).collect::<Vec<String>>().connect("::").as_slice());
     ret
 }
 
-pub fn item_to_str(i: &ast::Item) -> StrBuf {
-    let mut ret = StrBuf::new();
+pub fn item_to_str(i: &ast::Item) -> String {
+    let mut ret = String::new();
     if i.vis == ast::Public {
         ret.push_str(format!("pub ").as_slice());
     }
@@ -93,13 +93,13 @@ pub fn item_to_str(i: &ast::Item) -> StrBuf {
 
 
 // pub fn path_to_str(p: &ast::Path) -> ~str {
-//     let mut ret = StrBuf::new();
+//     let mut ret = String::new();
 //     if p.global {
 //         ret.push_str("::")
 //     }
 //     ret.push_str(
 //         p.segments.iter().map(|seg| {
-//             let mut tmp = StrBuf::new();
+//             let mut tmp = String::new();
 //             tmp.push_str(get_ident(seg.identifier).get().to_owned());
 //             // if !seg.types.is_empty() {
 //             //     tmp.push_str("<");
@@ -112,7 +112,7 @@ pub fn item_to_str(i: &ast::Item) -> StrBuf {
 // }
 
 
-pub fn ty_to_str(t: &ast::Ty) -> StrBuf {
+pub fn ty_to_str(t: &ast::Ty) -> String {
     match t.node {
         ast::TyNil => {}
         ast::TyBot => {}
@@ -132,5 +132,5 @@ pub fn ty_to_str(t: &ast::Ty) -> StrBuf {
         ast::TyTypeof(..) => {}
         ast::TyInfer => {}
     }
-    StrBuf::new()
+    String::new()
 }

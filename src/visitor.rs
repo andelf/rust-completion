@@ -22,15 +22,18 @@ use syntax::parse::token;
 
 use rustdoc::core;
 use rustdoc::doctree::*;
+use collections::hashmap::HashSet;
+use collections::hashmap::HashMap;
 
 use utils::*;
+
 
 pub struct RustdocVisitor<'a> {
     pub module: Module,
     pub attrs: Vec<ast::Attribute>,
     pub cx: &'a core::DocContext,
     pub analysis: Option<&'a core::CrateAnalysis>,
-    pub names: Vec<String>,
+    pub names: HashMap<String, bool>,
     current_prefix: String,
 }
 
@@ -42,7 +45,7 @@ impl<'a> RustdocVisitor<'a> {
             attrs: Vec::new(),
             cx: cx,
             analysis: analysis,
-            names: Vec::new(),
+            names: HashMap::new(),
             current_prefix: String::new(),
         }
     }
@@ -69,6 +72,8 @@ impl<'a> RustdocVisitor<'a> {
         }
 
         self.current_prefix = crate_id;
+        self.names.insert(self.current_prefix.to_string(), true);
+
         self.module = self.visit_mod_contents(krate.span,
                                               krate.attrs
                                                    .iter()
@@ -85,6 +90,7 @@ impl<'a> RustdocVisitor<'a> {
                             generics: &ast::Generics) -> Struct {
         let struct_type = struct_type_from_def(sd);
         println!("!s {}::{}", self.current_prefix, token::get_ident(item.ident));
+        self.names.insert(format!("{}::{}", self.current_prefix, token::get_ident(item.ident)), item.vis == ast::Public);
         Struct {
             id: item.id,
             struct_type: struct_type,
@@ -102,6 +108,7 @@ impl<'a> RustdocVisitor<'a> {
         let mut vars: Vec<Variant> = Vec::new();
         for x in def.variants.iter() {
             println!("!e|{}::{}", self.current_prefix, token::get_ident(x.node.name));
+            self.names.insert(format!("{}::{}", self.current_prefix, token::get_ident(x.node.name)), it.vis == ast::Public);
             vars.push(Variant {
                 name: x.node.name,
                 attrs: x.node.attrs.iter().map(|x| *x).collect(),
@@ -195,6 +202,7 @@ impl<'a> RustdocVisitor<'a> {
             ast::ViewPathSimple(ref ident, _, id) => {
 
                 println!("!  {}::{}", self.current_prefix, token::get_ident(*ident));
+                self.names.insert(format!("{}::{}", self.current_prefix, token::get_ident(*ident)), true);
                 if self.resolve_id(id, false, om, please_inline) { return None }
             }
             ast::ViewPathList(ref p, ref paths, ref b) => {
@@ -263,11 +271,15 @@ impl<'a> RustdocVisitor<'a> {
 
     pub fn visit_item(&mut self, item: &ast::Item, om: &mut Module) {
         let name = token::get_ident(item.ident);
+
         match item.node {
             ast::ItemMod(ref m) => {
                 let old_prefix = self.current_prefix.clone();
-                println!("!m {}::{}", self.current_prefix, name);
+                let is_visible = item.vis == ast::Public;
+                //println!("!m {}::{}", self.current_prefix, name);
+                self.names.insert(format!("{}::{}", self.current_prefix, name), is_visible);
                 self.current_prefix = String::from_owned_str(format!("{}::{}", self.current_prefix, name));
+
                 om.mods.push(self.visit_mod_contents(item.span,
                                                      item.attrs
                                                          .iter()
@@ -291,10 +303,12 @@ impl<'a> RustdocVisitor<'a> {
             ast::ItemStruct(sd, ref gen) =>
                 om.structs.push(self.visit_struct_def(item, sd, gen)),
             ast::ItemFn(fd, ref pur, ref abi, ref gen, _) => {
+                self.names.insert(format!("{}::{}", self.current_prefix, name), item.vis == ast::Public);
                 println!("!f {}::{}", self.current_prefix, name);
                 om.fns.push(self.visit_fn(item, fd, pur, abi, gen));
             },
             ast::ItemTy(ty, ref gen) => {
+                self.names.insert(format!("{}::{}", self.current_prefix, name), item.vis == ast::Public);
                 println!("!t {}::{}", self.current_prefix, name);
                 let t = Typedef {
                     ty: ty,
@@ -309,6 +323,7 @@ impl<'a> RustdocVisitor<'a> {
             },
             ast::ItemStatic(ty, ref mut_, ref exp) => {
                 println!("!_ {}::{}", self.current_prefix, name);
+                self.names.insert(format!("{}::{}", self.current_prefix, name), item.vis == ast::Public);
                 let s = Static {
                     type_: ty,
                     mutability: mut_.clone(),
@@ -323,6 +338,7 @@ impl<'a> RustdocVisitor<'a> {
             },
             ast::ItemTrait(ref gen, _, ref tr, ref met) => {
                 println!("!T {}::{}", self.current_prefix, name);
+                self.names.insert(format!("{}::{}", self.current_prefix, name), item.vis == ast::Public);
                 let t = Trait {
                     name: item.ident,
                     methods: met.iter().map(|x| (*x).clone()).collect(),

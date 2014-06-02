@@ -86,7 +86,8 @@ fn get_ast_and_resolve(cpath: &Path, libs: HashSet<Path>, cfgs: Vec<String>) -> 
         external_traits: RefCell::new(Some(HashMap::new())),
         external_typarams: RefCell::new(Some(HashMap::new())),
         external_paths: RefCell::new(Some(HashMap::new())),
-        inlined: RefCell::new(Some(HashSet::new()))
+        inlined: RefCell::new(Some(HashSet::new())),
+        populated_crate_impls: RefCell::new(HashSet::new()),
     }, CrateAnalysis {
         exported_items: exported_items,
         public_items: public_items,
@@ -107,6 +108,10 @@ pub fn run_core(libs: HashSet<Path>, cfgs: Vec<String>, path: &Path) {
     let mut v = RustdocVisitor::new(ctxt, Some(&analysis));
     v.visit(&ctxt.krate);                                        // no clean here
 
+    for name in v.names.iter() {
+        println!(">>> {}", name);
+    }
+
     let module = v.module;
     println!("{}", "=".repeat(60));
     // println!("mudule => {:?}", module);
@@ -121,7 +126,7 @@ pub fn run_core(libs: HashSet<Path>, cfgs: Vec<String>, path: &Path) {
         println!("impl for => {:?}", i.for_);
     }
     for m in module.mods.iter() {
-        println!("sub mod => {:?}", m.name.map(|ident| token::get_ident(ident).get().to_owned()));
+        println!("sub mod => {}", m.name.map(|ident| token::get_ident(ident).get().to_owned()));
     }
 }
 
